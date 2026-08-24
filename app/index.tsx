@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 // 👇 NOTE: Imported from /legacy for modern Expo compatibility
@@ -34,8 +34,8 @@ interface DownloadProgress {
   totalBytesExpectedToWrite: number;
 }
 
-// Replace with your local machine's Wi-Fi IP (e.g., http://192.168.1.100:5000)
-const API_URL = 'http://10.162.146.244:5000';
+
+const API_URL = 'https://yt-downloder-backend-pi69.onrender.com';
 
 export default function App() {
   const [url, setUrl] = useState<string>('');
