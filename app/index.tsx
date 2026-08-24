@@ -1,3 +1,4 @@
+import * as Sharing from 'expo-sharing';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,7 +14,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 // 👇 NOTE: Imported from /legacy for modern Expo compatibility
 import * as FileSystem from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
 
 // --- INTERFACES ---
 interface VideoFormat {
@@ -83,59 +83,63 @@ export default function App() {
 
   // 2. Download and Save to Device Gallery
   const handleDownload = async (): Promise<void> => {
-    if (!selectedItag || !videoData) {
-      Alert.alert('Error', 'Please select a quality option first.');
-      return;
-    }
+  if (!selectedItag || !videoData) {
+    Alert.alert('Error', 'Please select a quality option first.');
+    return;
+  }
 
-    const baseDir = FileSystem.documentDirectory;
-    if (!baseDir) {
-      Alert.alert('Error', 'Storage directory is not accessible.');
-      return;
-    }
+  const baseDir = FileSystem.documentDirectory;
+  if (!baseDir) {
+    Alert.alert('Error', 'Storage directory is not accessible.');
+    return;
+  }
 
-    setDownloading(true);
-    setDownloadProgress(0);
+  setDownloading(true);
+  setDownloadProgress(0);
 
-    try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Storage access is required to save the video.');
-        setDownloading(false);
-        return;
-      }
+  try {
+    const downloadUrl = `${API_URL}/api/download?url=${encodeURIComponent(
+      url
+    )}&itag=${selectedItag}&title=${encodeURIComponent(videoData.title)}`;
 
-      const downloadUrl = `${API_URL}/api/download?url=${encodeURIComponent(
-        url
-      )}&itag=${selectedItag}&title=${encodeURIComponent(videoData.title)}`;
+    const localFileUri = `${baseDir}${Date.now()}.mp4`;
 
-      const localFileUri = `${baseDir}${Date.now()}.mp4`;
-
-      const downloadResumable = FileSystem.createDownloadResumable(
-        downloadUrl,
-        localFileUri,
-        {},
-        (progress: DownloadProgress) => {
-          if (progress.totalBytesExpectedToWrite > 0) {
-            const percent = progress.totalBytesWritten / progress.totalBytesExpectedToWrite;
-            setDownloadProgress(Math.round(percent * 100) || 0);
-          }
+    const downloadResumable = FileSystem.createDownloadResumable(
+      downloadUrl,
+      localFileUri,
+      {},
+      (progress: DownloadProgress) => {
+        if (progress.totalBytesExpectedToWrite > 0) {
+          const percent = progress.totalBytesWritten / progress.totalBytesExpectedToWrite;
+          setDownloadProgress(Math.round(percent * 100) || 0);
         }
-      );
-
-      const result = await downloadResumable.downloadAsync();
-
-      if (result && result.uri) {
-        await MediaLibrary.saveToLibraryAsync(result.uri);
-        Alert.alert('Success 🎉', 'Video saved directly to your Photos/Gallery!');
       }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Download failed';
-      Alert.alert('Download Error', errorMessage);
-    } finally {
-      setDownloading(false);
+    );
+
+    const result = await downloadResumable.downloadAsync();
+
+    // Verify download succeeded with HTTP 200
+    if (result && result.status === 200 && result.uri) {
+      const isSharingAvailable = await Sharing.isAvailableAsync();
+      if (isSharingAvailable) {
+        await Sharing.shareAsync(result.uri, {
+          mimeType: 'video/mp4',
+          dialogTitle: 'Save your Video',
+          UTI: 'public.movie',
+        });
+      } else {
+        Alert.alert('Success 🎉', 'Video downloaded successfully!');
+      }
+    } else {
+      Alert.alert('Download Failed', 'The server could not stream this video quality.');
     }
-  };
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'Download failed';
+    Alert.alert('Download Error', errorMessage);
+  } finally {
+    setDownloading(false);
+  }
+};
 
   return (
     <SafeAreaView style={styles.container}>
